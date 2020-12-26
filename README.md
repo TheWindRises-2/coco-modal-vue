@@ -1,7 +1,7 @@
 # coco-modal-vue
-coco-modal的vue组件
+ [coco-modal](https://github.com/TheWindRises-2/coco-modal) 的vue组件
 
- [coco-modal](https://github.com/TheWindRises-2/coco-modal)
+
  
 ```
 
