@@ -1,6 +1,8 @@
 # coco-modal-vue
 coco-modal的vue组件
 
+ [coco-modal](https://github.com/TheWindRises-2/coco-modal)
+ 
 ```
 
 import CocoModal from 'coco-modal-vue'
@@ -25,6 +27,5 @@ this.$coco('hello world','coco modal',{
 
 ## Examples
 
- [coco-modal](https://github.com/TheWindRises-2/coco-modal)
 
 在线示例： [Examples](https://unpkg.com/coco-modal/example/example.html)
