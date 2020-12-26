@@ -30,7 +30,7 @@ this.$coco('hello world','coco modal',{
 
 [在线示例](https://unpkg.com/coco-modal/example/example.html)
 
-##所有参数
+## 所有参数
 
 ```
     {
