@@ -34,7 +34,6 @@ this.$coco('hello world','coco modal',{
 
 ```
     {
-        el: null, // 一个dom节点或者选择器  el: '#login'
         maskClose: true,
         header: true,
         footer: true,
@@ -66,7 +65,6 @@ this.$coco('hello world','coco modal',{
           close(){},
           closed(){}
         },
-        destroy: false,
         animation: true
     }
 
