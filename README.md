@@ -2,7 +2,14 @@
  [coco-modal](https://github.com/TheWindRises-2/coco-modal) 的vue组件
 
 
- 
+## Usage
+
+install via npm:
+
+```
+npm install coco-modal-vue -S
+```
+
 ```
 
 import CocoModal from 'coco-modal-vue'
