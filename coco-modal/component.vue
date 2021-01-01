@@ -27,7 +27,7 @@
             @click="beforeCloseFn('closeButton')"
           ></div>
           <div class="coco-modal-header" ref="headerEl" v-if="header">
-            <div class="rt-modal-title" ref="titleEl">
+            <div class="coco-modal-title" ref="titleEl">
               <span ref="titleSpan">{{ title }}</span>
             </div>
           </div>
@@ -57,11 +57,21 @@
             v-else-if="!$slots.footer && footer"
           >
             <button
+              class="coco-btn cancel"
+              ref="cancelButtonEl"
+              @click="beforeCloseFn('cancel')"
+              v-if="cancelButton"
+            >
+              <span ref="cancelButtonSpan">{{ cancelText }}</span>
+            </button>
+            <button
               class="coco-btn ok"
               :style="{ backgroundColor: buttonColor }"
               :class="[isLoading ? 'coco-is-loading' : '']"
               ref="okButtonEl"
               @click="beforeCloseFn('ok')"
+              @keypress.enter.prevent
+              @keyup.enter="beforeCloseFn('ok')"
               v-if="okButton"
             >
               <span
@@ -70,14 +80,6 @@
                 ref="loadingEl"
               ></span>
               <span ref="okButtonSpan">{{ okText }}</span>
-            </button>
-            <button
-              class="coco-btn cancel"
-              ref="cancelButtonEl"
-              @click="beforeCloseFn('cancel')"
-              v-if="cancelButton"
-            >
-              <span ref="cancelButtonSpan">{{ cancelText }}</span>
             </button>
           </div>
         </div>
@@ -143,12 +145,15 @@ let props = {
   },
   zIndexOfModal: {
     type: Number,
+    default: 1995,
   },
   zIndexOfMask: {
     type: Number,
+    default: 2008,
   },
   zIndexOfActiveModal: {
     type: Number,
+    default: 2020,
   },
   onClose: {
     type: Function,
@@ -195,38 +200,8 @@ let props = {
     default: false,
   },
 };
-if (window && window.CocoConfig) {
-  for (const key in props) {
-    if (window.CocoConfig[key] !== undefined && key !== "value") {
-      props[key].default = window.CocoConfig[key];
-    }
-  }
-}
-
-
-
-let w = window;
-let doc = null;
-let body = null;
-let docEl = null;
-let scrollbarWidth = 0;
-
-let bodyStyle = {};
-
-let inBrowser = typeof w !== "undefined";
-let isAnimation = (anm) => {
-  return ieVersion() > 9 ? anm : false;
-};
-
-let raf = inBrowser
-  ? w.requestAnimationFrame
-    ? w.requestAnimationFrame.bind(w)
-    : setTimeout
-  : function (fn) {
-      return fn();
-    };
-
 let initOptions = {
+  visible: false,
   maskClose: true,
   header: true,
   footer: true,
@@ -241,7 +216,6 @@ let initOptions = {
   okText: "确定",
   cancelText: "取消",
   closeButton: true,
-  html: "",
   zIndexOfModal: 1995,
   zIndexOfMask: 2008,
   zIndexOfActiveModal: 2020,
@@ -254,14 +228,57 @@ let initOptions = {
   hooks: {},
   destroy: false,
   animation: true,
+  onClose: null,
 };
-let CocoConfig = {};
+if (window && window.CocoConfig) {
+  for (const key in initOptions) {
+    if (window.CocoConfig[key] !== undefined) {
+      initOptions[key] = window.CocoConfig[key];
+    }
+  }
+}
+if (window && window.CocoConfig) {
+  for (const key in props) {
+    if (window.CocoConfig[key] !== undefined && key !== "value") {
+      props[key].default = window.CocoConfig[key];
+    }
+  }
+}
+
+let w = window;
+let doc = null;
+let body = null;
+let docEl = null;
+let scrollbarWidth = 0;
+
+let bodyStyle = {};
+
+let inBrowser = typeof w !== "undefined";
+let isAnimation = (anm) => {
+  return ieVersion() > 9 ? anm : false;
+};
+
+function getRaf() {
+  let res;
+  ["r", "webkitR", "mozR", "msR", "O"].forEach(function (prefix) {
+    let name = prefix + "equestAnimationFrame";
+    if (name in w) res = w[name];
+  });
+  return res;
+}
+let raf = inBrowser
+  ? getRaf()
+    ? getRaf().bind(w)
+    : setTimeout
+  : function (fn) {
+      return fn();
+    };
 
 function ieVersion() {
-  var userAgent = navigator.userAgent; //取得浏览器的userAgent字符串
+  var userAgent = navigator.userAgent;
   var isIE =
-    userAgent.indexOf("compatible") > -1 && userAgent.indexOf("MSIE") > -1; //判断是否IE<11浏览器
-  var isEdge = userAgent.indexOf("Edge") > -1 && !isIE; //判断是否IE的Edge浏览器
+    userAgent.indexOf("compatible") > -1 && userAgent.indexOf("MSIE") > -1;
+  var isEdge = userAgent.indexOf("Edge") > -1 && !isIE;
   var isIE11 =
     userAgent.indexOf("Trident") > -1 && userAgent.indexOf("rv:11.0") > -1;
   if (isIE) {
@@ -277,14 +294,14 @@ function ieVersion() {
     } else if (fIEVersion == 10) {
       return 10;
     } else {
-      return 6; //IE版本<=7
+      return 6;
     }
   } else if (isEdge) {
-    return "edge"; //edge
+    return "edge";
   } else if (isIE11) {
-    return 11; //IE11
+    return 11;
   } else {
-    return 100; //不是ie浏览器
+    return 100;
   }
 }
 
@@ -294,17 +311,23 @@ function nowTime() {
 
 function rafTimeout(fn, time) {
   let now = nowTime();
-
+  let res = {
+    stop: false,
+  };
   function step() {
     if (nowTime() - now < time) {
       raf(step);
     } else {
-      fn();
+      !res.stop && fn();
     }
   }
   raf(step);
+  return res;
 }
 
+let cancelRaf = (res) => {
+  if (res) res.stop = true;
+};
 rafTimeout = w.requestAnimationFrame ? rafTimeout : w.setTimeout;
 
 let MousePos = {};
@@ -318,47 +341,27 @@ function setPointerPosition(e) {
 }
 
 function beforeClose(a, way) {
-  let isOk = way === "ok";
+  let isOk = way == "ok";
   a.closeType = way;
-  if (a.isLoading && way === "ok") {
+  let aa = Object.assign({}, a);
+
+  if (a.isLoading && way == "ok") {
     return;
   }
   if (a.beforeCloseFn) {
     if (a.beforeCloseFn.length < 2) {
-      a.beforeCloseFn(a);
+      a.beforeCloseFn(isOk);
       closeModal(a);
     } else if (a.beforeCloseFn.length === 2) {
-      a.beforeCloseFn(a, isOk);
+      a.beforeCloseFn(isOk, aa);
       closeModal(a);
     } else {
-      a.beforeCloseFn(a, isOk, () => {
+      a.beforeCloseFn(isOk, aa, () => {
         closeModal(a);
       });
     }
   } else {
     closeModal(a);
-  }
-}
-function beforeCloseVue(a, way) {
-  let isOk = way === "ok";
-  a.closeType = way;
-  if ((a.isLoading && way === "ok") || (way === "mask" && !a.maskClose)) {
-    return;
-  }
-  if (a.onClose) {
-    if (a.onClose.length < 2) {
-      a.onClose(a);
-      closeModal(a, true);
-    } else if (a.onClose.length === 2) {
-      a.onClose(a, isOk);
-      closeModal(a, true);
-    } else {
-      a.onClose(a, isOk, () => {
-        closeModal(a, true);
-      });
-    }
-  } else {
-    closeModal(a, true);
   }
 }
 function addSomeEvents() {
@@ -373,11 +376,11 @@ function addSomeEvents() {
   );
   addEvent(w, "keyup", (e) => {
     let l = wrapperArray.length;
-    if (e.keyCode === 27 && l) {
+    if (e.code === "Escape" && l) {
       let a = wrapperArray[l - 1];
       if (a.escClose) {
         if (a.$el) {
-          beforeCloseVue(a, "esc");
+          a.close("esc");
         } else {
           beforeClose(a, "esc");
         }
@@ -527,6 +530,14 @@ function showMask(a) {
   if (window.CocoMask) return;
   window.CocoMask = r({
     class: "coco-modal-mask blur",
+    "@click": () => {
+      if (typeof process !== undefined) {
+        removeChildNode(window.CocoMask);
+        window.CocoMask = null;
+        wrapperArray = [];
+        deleteBodyStyle();
+      }
+    },
   });
   a.mask = window.CocoMask;
 
@@ -546,7 +557,7 @@ function blurModal() {
 let modalElID = {};
 
 function initModal(a) {
-  let { wrapper, modal, okButtonEl, destroy, el, inputAttrs, domEl } = a;
+  let { wrapper, modal, okButtonEl, destroy, el, inputAttrs } = a;
   initModalData(a);
   needRender(a);
   addEvent(wrapper, "scroll", (_) => {
@@ -556,7 +567,7 @@ function initModal(a) {
     initInput(a);
   }
   addEvent(okButtonEl, "keyup", (e) => {
-    if (e.keyCode === 13) {
+    if (e.code === "Enter") {
       beforeClose(a, "ok");
     }
   });
@@ -601,16 +612,6 @@ function scrollOrigin(a, wrapper, modal) {
   let y = a.originY + offsetY;
   let origin = x + "px " + y + "px";
   setTransformOrigin(modal, origin);
-}
-
-function inArray(el, array) {
-  let has = false;
-  array.forEach((it) => {
-    if (it === el) {
-      has = true;
-    }
-  });
-  return has;
 }
 
 function displayModal(wrapper) {
@@ -669,20 +670,23 @@ function showModal(a) {
     notMount,
     fullScreen,
     hooks,
-    isClosed,
     inputAttrs,
   } = a;
-  if (inArray(a, wrapperArray) || !isClosed) {
+
+  if (!wrapper) {
     return;
   }
+  removeClass(wrapper, "coco-p-e-n");
+  if (!doc) {
+    doc = w.document;
+    body = doc.body;
+    docEl = doc.documentElement;
+  }
 
-  doc = w.document;
-  body = doc.body;
-  docEl = doc.documentElement;
-  animation = isAnimation(animation);
-  let duration = animation ? 380 : 0;
+  !a.isOpen && clearClose(a);
+
+  let duration = isAnimation(animation) ? 380 : 0;
   a.isOpen = true;
-  a.openTime = nowTime();
   cocoFocusEl = doc.activeElement;
 
   showMask(a);
@@ -690,6 +694,7 @@ function showModal(a) {
   isBlur(blur, modalContent);
   blurModal();
   addModal(a);
+
   wrapperArray.length > 1 && resetModalIndex();
   displayModal(wrapper);
 
@@ -703,6 +708,7 @@ function showModal(a) {
     a.inputValue = a.inputEl.value || "";
   }
   fullScreen && fullScreenModal(a);
+
   paddingBottom(modal, modalContent);
   positionCenter(a);
   animation && isOrigin(a, modal);
@@ -711,37 +717,30 @@ function showModal(a) {
   a.notMount = false;
   hooks && hooks.open && hooks.open(a);
   isFocusEl(modal);
-  rafTimeout(() => {
+  a.rafTimerOpen = rafTimeout(() => {
     clearClass(modal, "zoom", true);
     clearClass(window.CocoMask, "fade", true);
     hooks && hooks.opened && hooks.opened(a);
   }, duration);
 }
 
+function clearOpen(a) {
+  cancelRaf(a.rafTimerOpen);
+  clearClass(a.modal, "zoom", true);
+  clearClass(window.CocoMask, "fade", true);
+}
+
 function closeModal(a) {
-  let {
-    openTime,
-    wrapper,
-    modal,
-    isOpen,
-    destroy,
-    div,
-    animation,
-    args,
-    hooks,
-    $el,
-  } = a;
+  let { wrapper, modal, isOpen, destroy, div, animation, args, hooks, $el } = a;
 
-  doc = w.document;
-  body = doc.body;
-  docEl = doc.documentElement;
-  animation = isAnimation(animation);
-  let duration = animation ? 280 : 0;
-
-  if (nowTime() - openTime < 380 || !isOpen) return;
+  if (!wrapper) {
+    return;
+  }
+  let duration = isAnimation(animation) ? 280 : 0;
+  isOpen && clearOpen(a);
 
   a.isOpen = false;
-  a.isClosed = false;
+  addClass(wrapper, "coco-p-e-n");
   deleteArrayItems(a, wrapperArray);
 
   animation && startAnimation(modal, "zoom");
@@ -750,8 +749,9 @@ function closeModal(a) {
   }
 
   hooks && hooks.close && hooks.close(a);
-  rafTimeout(() => {
+  a.rafTimerClose = rafTimeout(() => {
     $el && a.$emit("input", false);
+    a.notChange = true;
     wrapperArray.length > 0 && resetModalIndex();
     clearClass(modal, "zoom");
     clearClass(window.CocoMask, "fade");
@@ -766,14 +766,10 @@ function closeModal(a) {
       }
       deleteBodyStyle();
     }
-    a.hideLoading();
-    a.isClosed = true;
     cocoFocusEl && cocoFocusEl.focus();
     hooks && hooks.closed && hooks.closed(a);
-
     if (destroy && !$el) {
       body.contains(div) && removeChildNode(div);
-
       deleteArrayItems(
         {
           a,
@@ -782,7 +778,6 @@ function closeModal(a) {
         CocoArgsArray,
         true
       );
-
       for (const key in a) {
         if (a.hasOwnProperty(key)) {
           a[key] = null;
@@ -798,6 +793,48 @@ function closeModal(a) {
   }, duration);
 }
 
+function clearClose(a) {
+  let { modal, destroy, $el, args, div } = a;
+  if (!window.CocoMask) {
+    return;
+  }
+  cancelRaf(a.rafTimerClose);
+  wrapperArray.length > 0 && resetModalIndex();
+  clearClass(modal, "zoom");
+  clearClass(window.CocoMask, "fade");
+  if (!wrapperArray.length) {
+    if (destroy) {
+      body.contains(window.CocoMask) && removeChildNode(window.CocoMask);
+      window.CocoMask = null;
+    } else {
+      css(window.CocoMask, {
+        display: "none",
+      });
+    }
+    deleteBodyStyle();
+  }
+
+  cocoFocusEl && cocoFocusEl.focus();
+
+  if (destroy && !$el) {
+    body.contains(div) && removeChildNode(div);
+    deleteArrayItems(
+      {
+        a,
+        args,
+      },
+      CocoArgsArray,
+      true
+    );
+    for (const key in a) {
+      if (a.hasOwnProperty(key)) {
+        a[key] = null;
+        delete a[key];
+      }
+    }
+    a = null;
+  }
+}
 function paddingBottom(modal, modalContent) {
   let needPaddingBottom =
     modalContent.offsetHeight + modalContent.offsetTop >
@@ -871,30 +908,31 @@ function isOrigin(a, modal) {
   }
 }
 
-function positionCenter({ top, modal }) {
+function positionCenter({ top, modal, fullScreen }) {
   if (top === "center") {
     let windowHeight = window.CocoMask.offsetHeight;
 
     top = (windowHeight - modal.offsetHeight) / 2;
-    top = top >= 0 ? top : 0;
+    top = top >= 30 ? top : 30;
     top += "px";
     css(modal, {
-      top,
+      marginTop: top,
     });
   } else {
-    css(modal, {
-      top,
-    });
+    !fullScreen &&
+      css(modal, {
+        marginTop: top,
+      });
   }
 }
 
 function fullScreenModal({ bodyEl, headerEl, footerEl, modal, modalContent }) {
   let height = 0;
-
   css(modal, {
     width: "100%",
     height: "100%",
-    top: 0,
+
+    marginTop: "0px",
     padding: 0,
   });
   css(modalContent, {
@@ -902,8 +940,8 @@ function fullScreenModal({ bodyEl, headerEl, footerEl, modal, modalContent }) {
   });
   height =
     window.CocoMask.offsetHeight -
-    headerEl.offsetHeight -
-    footerEl.offsetHeight -
+    (headerEl ? headerEl.offsetHeight : 0) -
+    (footerEl ? footerEl.offsetHeight : 0) -
     1 +
     "px";
   css(bodyEl, {
@@ -927,6 +965,7 @@ function resetModalIndex() {
   wrapperArray.forEach((md, index) => {
     a = md;
     md = md.wrapper;
+
     if (index === wrapperArray.length - 1) {
       css(md, {
         zIndex: a.zIndexOfActiveModal,
@@ -945,9 +984,22 @@ const createModalEl = (a) => {
       class: "coco-modal-wrapper",
       role: "dialog-wrapper",
       tabindex: "-1",
+
       "@click"(e) {
-        if (a.maskClose && e.target === el) {
+        if (a.notMouseUp === 2 && a.maskClose && e.target === el) {
           beforeClose(a, "mask");
+        }
+        a.notMouseUp = 0;
+      },
+      "@mousedown"(e) {
+        a.notMouseUp = 0;
+        if (a.maskClose && e.target === el) {
+          a.notMouseUp++;
+        }
+      },
+      "@mouseup"(e) {
+        if (a.maskClose && e.target === el) {
+          a.notMouseUp++;
         }
       },
       is: [a, "wrapper"],
@@ -981,7 +1033,7 @@ const createModalEl = (a) => {
                 [
                   r(
                     {
-                      class: "rt-modal-title",
+                      class: "coco-modal-title",
                       is: [a, "titleEl"],
                     },
                     [
@@ -1044,25 +1096,6 @@ const createModalEl = (a) => {
                   r(
                     {
                       el: "button",
-                      class: "coco-btn ok",
-                      is: [a, "okButtonEl"],
-                    },
-                    [
-                      r({
-                        el: "span",
-                        class: "coco-loading",
-                        is: [a, "loadingEl"],
-                      }),
-                      r({
-                        el: "span",
-                        is: [a, "okButtonSpan"],
-                      }),
-                    ]
-                  ),
-
-                  r(
-                    {
-                      el: "button",
                       class: "coco-btn cancel",
                       is: [a, "cancelButtonEl"],
                     },
@@ -1070,6 +1103,25 @@ const createModalEl = (a) => {
                       r({
                         el: "span",
                         is: [a, "cancelButtonSpan"],
+                      }),
+                    ]
+                  ),
+                  r(
+                    {
+                      el: "button",
+                      class: "coco-btn ok",
+                      is: [a, "okButtonEl"],
+                    },
+                    [
+                      r({
+                        el: "span",
+                        class: "coco-loading",
+                        style: "display:none",
+                        is: [a, "loadingEl"],
+                      }),
+                      r({
+                        el: "span",
+                        is: [a, "okButtonSpan"],
                       }),
                     ]
                   ),
@@ -1139,7 +1191,7 @@ function initModalData(a) {
   } = a;
 
   css(modal, {
-    top,
+    marginTop: top,
     width,
     borderRadius,
   });
@@ -1171,7 +1223,7 @@ function initInput(a) {
     a.inputValue = e.target.value;
   });
   addEvent(inputEl, "keyup", (e) => {
-    if (e.keyCode === 13) {
+    if (e.code === "Enter") {
       beforeClose(a, "ok");
     }
   });
@@ -1219,18 +1271,7 @@ function isObjectEqual(a, b) {
   return equal;
 }
 
-function copy(obj) {
-  let newObj = {};
-  for (const key in obj) {
-    if (Object.hasOwnProperty.call(obj, key)) {
-      newObj[key] = obj[key];
-    }
-  }
-  return newObj;
-}
-
-function coco(text='', title, args = {}) {
-  if (typeof Vue !== "undefined" && Vue.prototype.$isServer) return;
+function coco(text = "", title, args = {}) {
   let a = {};
   let al = arguments.length;
   if (typeof text === "object") {
@@ -1242,7 +1283,7 @@ function coco(text='', title, args = {}) {
     } else if (typeof title === "object") {
       args = title;
     }
-    
+
     args.text = text;
   }
   if (arguments.length > 1 && arguments[al - 1] === "alert") {
@@ -1254,7 +1295,7 @@ function coco(text='', title, args = {}) {
     args.closeButton = false;
   }
   a = args;
-  args = copy(args);
+  args = Object.assign({}, args);
 
   for (let i = 0; i < CocoArgsArray.length; i++) {
     if (isObjectEqual(args, CocoArgsArray[i].args)) {
@@ -1267,10 +1308,9 @@ function coco(text='', title, args = {}) {
     a,
   });
   a.args = args;
-  a.openTime = 0;
   a.isLoading = false;
   a.notMount = true;
-  a.isClosed = true;
+  a.isOpen = true;
   a.scrollbarWidth = scrollbarWidth;
   initArgs(a);
 
@@ -1285,17 +1325,20 @@ function coco(text='', title, args = {}) {
     a.beforeCloseFn = fn;
     return a;
   };
+  a.destroyModal = function () {
+    a.destroy = true;
+  };
   createModalEl(a);
   initModal(a);
 
-  addEvent(a.okButtonEl, "click", (e) => {
+  addEvent(a.okButtonEl, "click", () => {
     beforeClose(a, "ok");
   });
   addEvent(a.okButtonEl, "keypress", (e) => {
     e.preventDefault();
   });
 
-  addEvent(a.cancelButtonEl, "click", (e) => {
+  addEvent(a.cancelButtonEl, "click", () => {
     beforeClose(a, "cancel");
   });
   a.showLoading = function () {
@@ -1325,6 +1368,31 @@ docEl = doc.documentElement;
 scrollbarWidth = getBarWidth();
 
 addSomeEvents();
+
+function beforeCloseVue(a, way) {
+  let isOk = way === "ok";
+  a.closeType = way;
+  let aa = Object.assign({}, a);
+  if ((a.isLoading && way === "ok") || (way === "mask" && !a.maskClose)) {
+    return;
+  }
+  if (a.onClose) {
+    if (a.onClose.length < 2) {
+      a.onClose(isOk);
+      closeModal(a, true);
+    } else if (a.onClose.length === 2) {
+      a.onClose(isOk, aa);
+      closeModal(a, true);
+    } else {
+      a.onClose(isOk, aa, () => {
+        closeModal(a, true);
+      });
+    }
+  } else {
+    closeModal(a, true);
+  }
+}
+
 export default {
   name: "CocoModal",
 
@@ -1344,6 +1412,7 @@ export default {
       notMount: true,
       isClosed: true,
       visible: false,
+      notChange: false,
     };
   },
 
@@ -1352,11 +1421,15 @@ export default {
       this.visible = val;
     },
     visible(val) {
+      if (this.notChange) {
+        this.notChange = false;
+        return;
+      }
       if (val) {
         this.showModal();
       } else {
         this.isLoading = false;
-        beforeCloseVue(this, "visibleChange1");
+        beforeCloseVue(this, "visibleChange");
       }
     },
   },
@@ -1397,34 +1470,12 @@ export default {
     scrollModal() {
       let a = this;
       let { wrapper, modal } = a;
-
       scrollOrigin(a, wrapper, modal);
     },
-
     close(type) {
       type = type ? type : "closeFunction";
       beforeCloseVue(this, type);
     },
-
-    webpackHotReloadBug() {
-      let arr = document.body.children || [];
-      arr = Array.from(arr);
-      for (const item of arr) {
-        if (item.className.indexOf("coco-modal-mask") >= 0) {
-          removeChildNode(item);
-          window.CocoMask = null;
-          deleteBodyStyle();
-          this.$emit("input", false);
-        }
-      }
-    },
-  },
-
-  destroyed() {
-    deleteArrayItems(this, wrapperArray);
-    if (!wrapperArray.length && this.value) {
-      this.webpackHotReloadBug();
-    }
   },
 
   mounted() {
@@ -1433,28 +1484,24 @@ export default {
     }
   },
   coco() {
-    return coco
+    return coco;
   },
 };
 </script>
 <style >
 @-webkit-keyframes coco-loading {
   0% {
-    -webkit-transform: rotate(0deg);
     transform: rotate(0deg);
   }
   to {
-    -webkit-transform: rotate(360deg);
     transform: rotate(360deg);
   }
 }
 @keyframes coco-loading {
   0% {
-    -webkit-transform: rotate(0deg);
     transform: rotate(0deg);
   }
   to {
-    -webkit-transform: rotate(360deg);
     transform: rotate(360deg);
   }
 }
@@ -1492,49 +1539,41 @@ export default {
 }
 @-webkit-keyframes cocoZoomIn {
   0% {
-    -webkit-transform: scale3d(0.25, 0.25, 0.25);
     transform: scale3d(0.25, 0.25, 0.25);
     opacity: 0;
   }
   to {
-    -webkit-transform: scale3d(1, 1, 1);
     transform: scale3d(1, 1, 1);
     opacity: 1;
   }
 }
 @keyframes cocoZoomIn {
   0% {
-    -webkit-transform: scale3d(0.25, 0.25, 0.25);
     transform: scale3d(0.25, 0.25, 0.25);
     opacity: 0;
   }
   to {
-    -webkit-transform: scale3d(1, 1, 1);
     transform: scale3d(1, 1, 1);
     opacity: 1;
   }
 }
 @-webkit-keyframes cocoZoomOut {
   0% {
-    -webkit-transform: scale3d(1, 1, 1);
     transform: scale3d(1, 1, 1);
     opacity: 1;
   }
   to {
-    -webkit-transform: scale3d(0.1, 0.1, 0.1);
-    transform: scale3d(0.1, 0.1, 0.1);
+    transform: scale3d(0, 0, 0);
     opacity: 0;
   }
 }
 @keyframes cocoZoomOut {
   0% {
-    -webkit-transform: scale3d(1, 1, 1);
     transform: scale3d(1, 1, 1);
     opacity: 1;
   }
   to {
-    -webkit-transform: scale3d(0.1, 0.1, 0.1);
-    transform: scale3d(0.1, 0.1, 0.1);
+    transform: scale3d(0, 0, 0);
     opacity: 0;
   }
 }
@@ -1560,26 +1599,28 @@ export default {
   z-index: 2020;
 }
 .coco-modal-mask {
-  background-color: rgba(0, 0, 0, 0.425);
+  background-color: rgba(2, 2, 1, 0.425);
   z-index: 2008;
 }
 .coco-modal-mask.blur {
+  background-color: rgba(2, 2, 1, 0.5);
   -webkit-backdrop-filter: blur(5px);
   backdrop-filter: blur(5px);
-  background-color: rgba(0, 0, 0, 0.5);
 }
 .coco-modal {
   position: relative;
   margin: 0 auto;
-  top: 15vh;
-  outline: 0;
+  margin-top: 15vh;
   width: 500px;
-  -webkit-transform: translateZ(0);
   transform: translateZ(0);
+  line-height: 1.66667;
+  list-style: none;
+  font-size: 14px;
 }
 .coco-modal-content {
   border-radius: 6px;
-  box-shadow: 0 0 1px 0 rgba(0, 0, 0, 0.08), 0 0 5px 0 rgba(0, 0, 0, 0.08);
+  box-shadow: 0 0 1px 0 rgba(0, 0, 0, 0.08), 0 0 5px 0 rgba(0, 0, 0, 0.08),
+    0 1px 3px 0 rgba(0, 0, 0, 0.1);
   background-color: #fff;
 }
 .coco-modal-content.coco-no-shadow {
@@ -1597,7 +1638,6 @@ export default {
   animation-duration: 0.14s;
   transition: none;
   pointer-events: none;
-  -webkit-transform: translateZ(0);
   transform: translateZ(0);
   will-change: opacity;
 }
@@ -1634,7 +1674,6 @@ export default {
   animation-play-state: paused;
   transition: none;
   pointer-events: none;
-  -webkit-transform: translateZ(0);
   transform: translateZ(0);
   will-change: opacity, transform;
 }
@@ -1660,96 +1699,106 @@ export default {
   -webkit-animation-name: cocoZoomOut;
   animation-name: cocoZoomOut;
 }
-.rt-modal-title {
-  position: relative;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+
 .coco-modal-close {
   position: absolute;
-  width: 25px;
-  height: 25px;
-  right: 15px;
+  width: 30px;
+  height: 30px;
+  right: 12px;
   top: 15px;
   z-index: 1;
   cursor: pointer;
 }
+
 .coco-modal-close::after,
 .coco-modal-close::before {
   content: "";
   position: absolute;
   left: 50%;
   top: 50%;
-  -webkit-transform: translate(-50%, -50%) rotate(-45deg);
-  transform: translate(-50%, -50%) rotate(-45deg);
+  transform: translate(-50%, -50%) rotate(-45deg) scale(1);
   width: 2px;
   height: 13px;
-  background-color: #a5a5a5;
+  background-color: #afb0b6;
   transition: all 0.15s ease-out;
   display: block;
   border-radius: 2px;
 }
 .coco-modal-close::after {
-  -webkit-transform: translate(-50%, -50%) rotate(45deg);
-  transform: translate(-50%, -50%) rotate(45deg);
+  transform: translate(-50%, -50%) rotate(45deg) scale(1);
 }
-.coco-modal-close:hover::after,
-.coco-modal-close:hover::before {
-  background-color: #646464;
-}
-.coco-modal-close:active::after,
-.coco-modal-close:active::before {
-  background-color: #010000;
-}
+
 .coco-modal-body,
 .coco-modal-header {
   position: relative;
   font-size: 18px;
-  color: #000002;
-  padding: 18px;
+  color: #111;
+  text-align: left;
 }
 .coco-modal-body {
-  padding: 20px 18px;
+  padding: 16px 18px;
   font-size: 14px;
-  color: #666667;
+  color: #616469;
   overflow: auto;
+}
+.coco-modal-header {
+  padding: 15px 18px;
+}
+.coco-modal-header::before {
+  content: "";
+  display: inline-block;
+  vertical-align: middle;
+  height: 100%;
+}
+.coco-modal-title {
+  position: relative;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+  width: 100%;
+  display: inline-block;
 }
 .coco-modal-footer {
   position: relative;
   text-align: right;
-  padding: 18px;
+  padding: 15px 18px;
 }
 .coco-btn {
   font-size: 14px;
   text-decoration: none;
-  padding: 6px 22px;
+  padding: 6px 21px;
   white-space: nowrap;
   border-radius: 6px;
-  font-weight: 600;
+  font-weight: 500;
   display: inline-block;
   cursor: pointer;
   border: 0;
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  outline: 0;
+  line-height: normal;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 .coco-btn.cancel {
-  margin-left: 10px;
-  color: #504949;
+  color: #525456;
   background-color: transparent;
-  font-weight: 500;
 }
+
 .coco-btn,
 .coco-btn span,
 .coco-loading {
   position: relative;
 }
 .coco-btn.ok {
-  background-color: #4285ff;
-  color: #fff;
+  margin-left: 10px;
+  background-color: #0077ff;
+  color: #fefeff;
 }
+
 .coco-btn.ok::before {
   content: "";
   position: absolute;
@@ -1758,15 +1807,16 @@ export default {
   width: 100%;
   height: 100%;
   border-radius: inherit;
-  transition: all 0.16s ease-out;
+  transition: all 0.12s ease-out;
   background-color: transparent;
 }
+
 .coco-btn.ok:hover::before {
-  background-color: rgba(0, 0, 0, 0.08);
+  background-color: rgba(255, 255, 255, 0.08);
 }
 .coco-btn.ok:active::before {
-  transition: all 0.05s ease;
-  background-color: rgba(0, 0, 0, 0.16);
+  transition: all 0.08s ease-out;
+  background-color: rgba(0, 0, 0, 0.2);
 }
 .coco-btn.ok.coco-is-loading::before {
   background-color: transparent;
@@ -1774,8 +1824,8 @@ export default {
 .coco-loading {
   width: 14px;
   height: 14px;
-  border: 3px solid #fff;
-  border-top: 3px solid transparent;
+  border: 2px solid #fff;
+  border-top: 2px solid transparent;
   border-radius: 7px;
   margin-right: 7px;
   display: none;
@@ -1788,24 +1838,24 @@ export default {
 .coco-hidden {
   visibility: hidden;
 }
+
 .coco-input {
   margin: 14px 0;
   width: 100%;
-  height: 39px;
+  height: 38px;
   border-radius: 6px;
-  padding: 7px 15px;
+  padding: 6px 15px;
   font-weight: 400;
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  color: #333;
-  background-color: #f3f3f4;
-  outline: 0;
+  color: #212122;
+  background-color: #f3f3f3;
   border: 1px solid transparent;
   font-size: 14px;
-  box-shadow: 0 0 0 0 rgba(53, 120, 229, 0.1);
-  transition: all 0.16s ease-out;
-  line-height: 20px;
+  box-shadow: 0 0 0 0 rgba(88, 161, 245, 0.2);
+  line-height: normal;
+  transition: all 0.1s ease-out;
 }
 .coco-input::-webkit-input-placeholder {
   line-height: 24px;
@@ -1820,30 +1870,47 @@ export default {
   line-height: 24px;
   color: #a2a2a3;
 }
+.coco-input::-webkit-input-placeholder {
+  line-height: 24px;
+  color: #a2a2a3;
+}
+.coco-input::-moz-placeholder {
+  line-height: 24px;
+  color: #a2a2a3;
+}
+.coco-input:-ms-input-placeholder {
+  line-height: 24px;
+  color: #a2a2a3;
+}
+.coco-input::-ms-input-placeholder {
+  line-height: 24px;
+  color: #a2a2a3;
+}
 .coco-input::placeholder {
   line-height: 24px;
   color: #a2a2a3;
 }
 .coco-input:hover {
-  transition: all 0.1s ease-out;
-  background-color: #fff;
-  box-shadow: 0 0 0 1px rgba(66, 133, 255, 0.25);
-  border-color: rgba(66, 133, 255, 0.5);
+  background-color: #efefef;
 }
 .coco-input:focus {
+  transition: all 0.2s ease;
   background-color: #fff;
-  box-shadow: 0 0 0 1px rgba(66, 133, 255, 0.25);
+  box-shadow: 0 0 0 2px rgba(88, 161, 245, 0.2);
   border-color: rgba(66, 133, 255, 0.5);
 }
 .coco-input:active {
-  transition: all 0.08s ease-out;
+  transition: all 0.1s ease;
   background-color: #fff;
-  border-color: #cbcbcc;
-  box-shadow: 0 0 0 0 rgba(66, 133, 255, 0.125);
+  border-color: #cecece;
+  box-shadow: 0 0 0 0 rgba(88, 161, 245, 0.2);
 }
 .coco-error-text {
   font-size: 14px;
-  color: #e71e63;
+  color: #ea1e63;
   margin: 5px 10px;
+}
+.coco-p-e-n {
+  pointer-events: none;
 }
 </style>
