@@ -13,7 +13,7 @@ Vue.use(CocoModal)
 
 ```
 
-<coco-modal v-model="open" :title="'coco modal'" :top="'300px'">
+<coco-modal v-model="open" :title="'coco modal'" :top="'300px'" :on-close="closeModal">
   hello world      
 </coco-modal>
 
