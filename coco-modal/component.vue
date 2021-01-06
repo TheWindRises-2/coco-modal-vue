@@ -1599,18 +1599,19 @@ export default {
   z-index: 2020;
 }
 .coco-modal-mask {
-  background-color: rgba(2, 2, 1, 0.425);
+  background-color: rgba(0, 0, 0, 0.425);
   z-index: 2008;
 }
 .coco-modal-mask.blur {
-  background-color: rgba(2, 2, 1, 0.5);
   -webkit-backdrop-filter: blur(5px);
   backdrop-filter: blur(5px);
+  background-color: rgba(0, 0, 0, 0.5);
 }
 .coco-modal {
   position: relative;
   margin: 0 auto;
-  margin-top: 15vh;
+  margin-top:15vh;
+  top: 0;
   width: 500px;
   transform: translateZ(0);
   line-height: 1.66667;
@@ -1618,9 +1619,8 @@ export default {
   font-size: 14px;
 }
 .coco-modal-content {
-  border-radius: 6px;
-  box-shadow: 0 0 1px 0 rgba(0, 0, 0, 0.08), 0 0 5px 0 rgba(0, 0, 0, 0.08),
-    0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  border-radius: 5px;
+  box-shadow: 0 0 1px 0 rgba(0, 0, 0, 0.05), 0 0 4px 0 rgba(0, 0, 0, 0.08);
   background-color: #fff;
 }
 .coco-modal-content.coco-no-shadow {
@@ -1702,14 +1702,24 @@ export default {
 
 .coco-modal-close {
   position: absolute;
-  width: 30px;
-  height: 30px;
-  right: 12px;
-  top: 15px;
+  width: 26px;
+  height: 26px;
+  width: 20px;
+  height: 20px;
+  right: 15px;
+  top: 17px;
   z-index: 1;
   cursor: pointer;
 }
+.coco-modal-close:hover::before,
+.coco-modal-close:hover::after {
+    background-color: #646464;
+}
 
+.coco-modal-close:active::before,
+.coco-modal-close:active::after {
+    background-color: #010000; 
+}
 .coco-modal-close::after,
 .coco-modal-close::before {
   content: "";
@@ -1717,9 +1727,9 @@ export default {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%) rotate(-45deg) scale(1);
-  width: 2px;
-  height: 13px;
-  background-color: #afb0b6;
+  width: 1px;
+  height: 14px;
+  background-color: #787878;
   transition: all 0.15s ease-out;
   display: block;
   border-radius: 2px;
@@ -1727,7 +1737,14 @@ export default {
 .coco-modal-close::after {
   transform: translate(-50%, -50%) rotate(45deg) scale(1);
 }
-
+.coco-modal-close:hover::after,
+.coco-modal-close:hover::before {
+  background-color: #646464;
+}
+.coco-modal-close:active::after,
+.coco-modal-close:active::before {
+  background-color: #010000;
+}
 .coco-modal-body,
 .coco-modal-header {
   position: relative;
@@ -1736,13 +1753,14 @@ export default {
   text-align: left;
 }
 .coco-modal-body {
-  padding: 16px 18px;
+  padding: 22px 18px;
   font-size: 14px;
-  color: #616469;
+  color: #646466;
   overflow: auto;
 }
 .coco-modal-header {
-  padding: 15px 18px;
+  height: 60px;
+  padding: 0 18px;
 }
 .coco-modal-header::before {
   content: "";
@@ -1767,9 +1785,9 @@ export default {
 .coco-btn {
   font-size: 14px;
   text-decoration: none;
-  padding: 6px 21px;
+  padding: 6px 20px;
   white-space: nowrap;
-  border-radius: 6px;
+  border-radius: 5px;
   font-weight: 500;
   display: inline-block;
   cursor: pointer;
@@ -1784,8 +1802,11 @@ export default {
   user-select: none;
 }
 .coco-btn.cancel {
+  margin-right: 10px;
   color: #525456;
   background-color: transparent;
+  font-weight: 500;
+  transition: all 0.06s ease-out;
 }
 
 .coco-btn,
@@ -1794,11 +1815,9 @@ export default {
   position: relative;
 }
 .coco-btn.ok {
-  margin-left: 10px;
   background-color: #0077ff;
-  color: #fefeff;
+  color: #fefefe;
 }
-
 .coco-btn.ok::before {
   content: "";
   position: absolute;
@@ -1810,12 +1829,11 @@ export default {
   transition: all 0.12s ease-out;
   background-color: transparent;
 }
-
 .coco-btn.ok:hover::before {
   background-color: rgba(255, 255, 255, 0.08);
 }
 .coco-btn.ok:active::before {
-  transition: all 0.08s ease-out;
+  transition: all 80ms ease-out;
   background-color: rgba(0, 0, 0, 0.2);
 }
 .coco-btn.ok.coco-is-loading::before {
@@ -1843,7 +1861,7 @@ export default {
   margin: 14px 0;
   width: 100%;
   height: 38px;
-  border-radius: 6px;
+  border-radius: 5px;
   padding: 6px 15px;
   font-weight: 400;
   -webkit-appearance: none;
@@ -1907,10 +1925,7 @@ export default {
 }
 .coco-error-text {
   font-size: 14px;
-  color: #ea1e63;
+  color: #e71e63;
   margin: 5px 10px;
-}
-.coco-p-e-n {
-  pointer-events: none;
 }
 </style>
