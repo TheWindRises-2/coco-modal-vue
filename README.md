@@ -4,10 +4,10 @@
 
 ## Usage
 
-install via npm:
+install via cnpm:
 
 ```
-npm install coco-modal-vue -S
+cnpm install coco-modal-vue -S
 ```
 
 ```
